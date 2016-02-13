@@ -352,13 +352,18 @@ public class AuctionServer
 	 */
 	public Boolean itemUnbid(int listingID)
 	{
+		boolean inBid = true;
+		
 		Item current;
 		synchronized(itemsAndIDs) {
 			current = itemsAndIDs.get(listingID);
+			if (current == null) {
+				inBid = false;
+			}
 		}
 		
 		synchronized(itemsUpForBidding) {
-			return itemsUpForBidding.contains(current);
+			return inBid && itemsUpForBidding.contains(current);
 		}
 	}
 
