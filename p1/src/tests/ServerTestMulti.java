@@ -6,8 +6,6 @@ import cmsc433.p1.Seller;
 import org.junit.*;
 
 import java.io.ByteArrayOutputStream;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.io.PrintStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -117,20 +115,25 @@ public class ServerTestMulti
 			}
 		}
 
-		        String output = os.toString();
-		        
-		        FileWriter writer;
-		        try
-		        {
-		            // Output the log of the test in a separate file, for ease of debugging.
-		            writer = new FileWriter("out" + testNumber + ".txt");
-		            writer.write(output);
-		            writer.close();
-		        }
-		        catch (IOException e)
-		        {
-		            e.printStackTrace();
-		        }
+
+
+
+
+
+		//        String output = os.toString();
+		//        
+		//        FileWriter writer;
+		//        try
+		//        {
+		//            // Output the log of the test in a separate file, for ease of debugging.
+		//            writer = new FileWriter("out" + testNumber + ".txt");
+		//            writer.write(output);
+		//            writer.close();
+		//        }
+		//        catch (IOException e)
+		//        {
+		//            e.printStackTrace();
+		//        }
 
 		assertFalse("You don't have any recording of how much was spent.", moneySpent==0);
 		assertTrue("For test number " + testNumber + " the server revenue " + AuctionServer.getInstance().revenue() + " differs from the revenue reported by the buyers " + moneySpent + "!", moneySpent == AuctionServer.getInstance().revenue());

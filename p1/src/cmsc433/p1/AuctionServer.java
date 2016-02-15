@@ -148,12 +148,13 @@ public class AuctionServer
 		int listingID;
 
 		//   Make sure there's room in the auction site.
-		synchronized(itemsUpForBidding) {
-			if (itemsUpForBidding.size() >= serverCapacity) {
-				return -1;
-			}
-		}
+		
 		synchronized(lastListingIDLock) {
+			synchronized(itemsUpForBidding) {
+				if (itemsUpForBidding.size() >= serverCapacity) {
+					return -1;
+				}
+			}
 			synchronized(itemsPerSeller) {
 				//   If the seller is a new one, add them to the list of sellers.
 				if (!itemsPerSeller.containsKey(sellerName)) {
