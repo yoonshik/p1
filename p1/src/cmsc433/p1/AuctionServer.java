@@ -167,16 +167,15 @@ public class AuctionServer
 				itemsPerSeller.put(sellerName, itemsPerSeller.get(sellerName) + 1);
 			}
 			listingID = ++lastListingID;
-		}	
-
-		item = new Item(sellerName, itemName, listingID, lowestBiddingPrice, biddingDurationMs);
-
+			item = new Item(sellerName, itemName, listingID, lowestBiddingPrice, biddingDurationMs);
+			synchronized(itemsUpForBidding) {
+				itemsUpForBidding.add(item);
+			}
+		}
 		synchronized(itemsAndIDs){
 			itemsAndIDs.put(listingID, item);
 		}
-		synchronized(itemsUpForBidding) {
-			itemsUpForBidding.add(item);
-		}
+		
 		return listingID;
 
 	}
