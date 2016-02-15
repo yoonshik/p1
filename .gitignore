@@ -49,3 +49,5 @@ Temporary Items
 # Java development
 *.class
 *out*.txt
+*.class
+p1/out0.txt
