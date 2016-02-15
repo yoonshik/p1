@@ -1,11 +1,11 @@
 # Submit server .submit file for
 #  Course CMSC433
-#  Project 1: Auction House
+#  Project P1: Auction House
 
 courseName=CMSC433
-semester=201401
-projectNumber=1
-courseKey=059e085148ac3ba3
+semester=201601
+projectNumber=P1
+courseKey=77b9f50f3f68b0de
 authentication.type=ldap
-baseURL=https://submit.cs.umd.edu:443/spring2014
-submitURL=https://submit.cs.umd.edu:443/spring2014/eclipse/SubmitProjectViaEclipse
+baseURL=https://submit.cs.umd.edu:443/spring2016
+submitURL=https://submit.cs.umd.edu:443/spring2016/eclipse/SubmitProjectViaEclipse
