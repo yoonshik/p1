@@ -129,9 +129,10 @@ public class AuctionServer
 	{
 		synchronized(itemsUpForBidding) {
 			//   Make sure there's room in the auction site.
-			if (itemsUpForBidding.size() > serverCapacity) {
+			if (itemsUpForBidding.size() >= serverCapacity) {
+//				System.out.println("itemsUpForBidding.size() " + itemsUpForBidding.size() +  " > serverCapacity");
 				return -1;
-			}			
+			}
 		}
 
 		synchronized(itemsPerSeller) {
@@ -141,7 +142,8 @@ public class AuctionServer
 			}
 			
 			//   If the seller has too many items up for bidding, don't let them add this one.			
-			if (itemsPerSeller.get(sellerName) > maxSellerItems) {
+			if (itemsPerSeller.get(sellerName) >= maxSellerItems) {
+//				System.out.println("itemsPerSeller.get(sellerName) > maxSellerItems");
 				return -1;
 			}
 			
@@ -316,7 +318,7 @@ public class AuctionServer
 			if (highestBidder != null) {
 				itemsPerBuyer.put(highestBidder, itemsPerBuyer.get(highestBidder)-1);
 			} else {
-				System.out.println("ERROR: This should not be running");
+//				System.out.println("ERROR: This should not be running");
 				return 3;
 			}
 		}
