@@ -91,6 +91,9 @@ public class AuctionServer
 	// List of itemIDs and the person who made the highest bid for each item.   This is a running list with everything ever bid upon.
 	private HashMap<Integer, String> highestBidders = new HashMap<Integer, String>(); 
 
+
+
+
 	// List of sellers and how many items they have currently up for bidding.
 	private HashMap<String, Integer> itemsPerSeller = new HashMap<String, Integer>();
 
@@ -105,8 +108,20 @@ public class AuctionServer
 	//
 	// private Object instanceLock = new Object(); 
 
+	//	private Object submiteItemLock = new Object();
+	//	private Object getItemsLock = new Object();
+	//	private Object submitBidLock = new Object();
+	//	private Object checkBidStatusLock = new Object();
+	//	private Object itemPriceLock = new Object();
+	//	private Object itemUnbidLock = new Object();
+	//	
 	private Object lastListingIDLock = new Object();
-	private Object revenueLock = new Object();
+	private Object validBidLock = new Object();
+	private Object validPurchaseLock = new Object();
+
+
+
+
 
 
 	/*
@@ -128,47 +143,41 @@ public class AuctionServer
 	 */
 	public int submitItem(String sellerName, String itemName, int lowestBiddingPrice, int biddingDurationMs)
 	{
+
+		Item item;
+		int listingID;
+
+		//   Make sure there's room in the auction site.
 		synchronized(itemsUpForBidding) {
-			//   Make sure there's room in the auction site.
 			if (itemsUpForBidding.size() >= serverCapacity) {
-				//					System.out.println("itemsUpForBidding.size() " + itemsUpForBidding.size() +  " > serverCapacity");
 				return -1;
 			}
 		}
-
-		synchronized(itemsPerSeller) {
-			//   If the seller is a new one, add them to the list of sellers.
-			if (!itemsPerSeller.containsKey(sellerName)) {
-				itemsPerSeller.put(sellerName,  0);
-			}
-
-			//   If the seller has too many items up for bidding, don't let them add this one.			
-			if (itemsPerSeller.get(sellerName) >= maxSellerItems) {
-				//					System.out.println("itemsPerSeller.get(sellerName) > maxSellerItems");
-				return -1;
-			}
-
-			//   Don't forget to increment the number of things the seller has currently listed.
-			itemsPerSeller.put(sellerName, itemsPerSeller.get(sellerName)+1);
-		}
-
-		// CAUTION: not synchronizing newItem
 		synchronized(lastListingIDLock) {
-			Item newItem = new Item(sellerName, itemName, ++lastListingID, lowestBiddingPrice, biddingDurationMs);
-			
-			synchronized(newItem) {
-				synchronized(itemsAndIDs) {
-					itemsAndIDs.put(lastListingID, newItem);
+			synchronized(itemsPerSeller) {
+				//   If the seller is a new one, add them to the list of sellers.
+				if (!itemsPerSeller.containsKey(sellerName)) {
+					itemsPerSeller.put(sellerName,  0);
+					//   If the seller has too many items up for bidding, don't let them add this one.
+				} else if (itemsPerSeller.get(sellerName) >= maxSellerItems) {
+					return -1;
 				}
-
-				synchronized(itemsUpForBidding) {
-					itemsUpForBidding.add(newItem);
-				}
-				
-				System.out.println((lastListingID) + " submitted. Minimum " + lowestBiddingPrice);
-				return lastListingID;
+				//   Don't forget to increment the number of things the seller has currently listed.
+				itemsPerSeller.put(sellerName, itemsPerSeller.get(sellerName) + 1);
 			}
+			listingID = ++lastListingID;
+		}	
+
+		item = new Item(sellerName, itemName, listingID, lowestBiddingPrice, biddingDurationMs);
+
+		synchronized(itemsAndIDs){
+			itemsAndIDs.put(listingID, item);
 		}
+		synchronized(itemsUpForBidding) {
+			itemsUpForBidding.add(item);
+		}
+		return listingID;
+
 	}
 
 
@@ -178,15 +187,11 @@ public class AuctionServer
 	 * @return A copy of the <code>List</code> of <code>Items</code>
 	 */
 	public List<Item> getItems()
-	{	
-		// Some reminders:
+	{
 		//    Don't forget that whatever you return is now outside of your control.
-		ArrayList<Item> itemsCopy;
 		synchronized(itemsUpForBidding) {
-			itemsCopy = new ArrayList<Item>(itemsUpForBidding);
+			return new ArrayList<Item>(itemsUpForBidding);
 		}
-		return itemsCopy;
-
 	}
 
 
@@ -199,96 +204,75 @@ public class AuctionServer
 	 */
 	public boolean submitBid(String bidderName, int listingID, int biddingAmount)
 	{
-
 		//   See if the item exists.
+
 		Item item;
 		synchronized(itemsAndIDs) {
-			if (!itemsAndIDs.containsKey(listingID)) {
-				return false;
-			}
 			item = itemsAndIDs.get(listingID);
 		}
+		if (item == null) {
+			return false;
+		}
 
-		//   See if it can be bid upon. TODO? or done?
-		synchronized(item) {
-			if (biddingAmount < item.lowestBiddingPrice()) {
+		synchronized(itemsUpForBidding) {
+			//   See if it can be bid upon.
+			if (!itemsUpForBidding.contains(item) || !item.biddingOpen()) {
 				return false;
 			}
+		}
 
-			//			See if the item is no longer for sale
-			synchronized(itemsUpForBidding) {
-				if (!itemsUpForBidding.contains(item)) {
-					return false;
-				}
-			}
-
+		synchronized(itemsPerBuyer) {
 			//   See if this bidder has too many items in their bidding list.
-			synchronized(itemsPerBuyer) {
-				//TODO: not sure if i should be checking for 0
-				if (!itemsPerBuyer.containsKey(bidderName)) {
-					itemsPerBuyer.put(bidderName, 0); 
-				}
+			if (!itemsPerBuyer.containsKey(bidderName)) {
+				itemsPerBuyer.put(bidderName, 0);
+			} else if (itemsPerBuyer.get(bidderName) >= maxBidCount) {
+				return false;
+			}
+		}
 
-				if (itemsPerBuyer.get(bidderName) > maxBidCount) {
+		//   Get current bidding info.
+
+		String formerBidder;
+
+		synchronized(highestBidders) {
+			if (highestBidders.containsKey(listingID)) {
+				formerBidder = highestBidders.get(listingID);
+				//   See if they already hold the highest bid.
+				if (formerBidder.equals(bidderName)) {
 					return false;
 				}
+			} else {
+				formerBidder = null;
 			}
+		}
 
-			String currentBidder;
-			//   Get current bidding info.
-			synchronized(highestBidders) {
-				if (!highestBidders.containsKey(listingID)) {
-					currentBidder = null;
-				} else {
-					currentBidder = highestBidders.get(listingID);
-					//   See if they already hold the highest bid.
-					if (currentBidder.equals(bidderName) ) {
-						return false;
-					}
-				}
-				
+		//   See if the new bid isn't better than the existing/opening bid floor.
+		synchronized(highestBids) {
+			if (highestBids.containsKey(listingID) && highestBids.get(listingID) >= biddingAmount ) {
+				return false;
 			}
+		}
 
-			boolean formerBidExists = true;
-			synchronized(highestBids) {
-
-				if (highestBids.containsKey(listingID)) {
-					int currentBid = highestBids.get(listingID);
-
-					//   See if the new bid isn't better than the existing/opening bid floor.
-					if (biddingAmount <= currentBid) { 
-						return false;
-					}
-					System.out.println(listingID + ": current " + currentBid + ", bid " + biddingAmount + " bid amount good");
-				} else {
-					formerBidExists = false;
-				}
-			}
-
-			//   Decrement the former winning bidder's count
-			if (formerBidExists) {
-				synchronized(itemsPerBuyer) {
-					itemsPerBuyer.put(currentBidder, itemsPerBuyer.get(currentBidder)-1);
-				}
-			}
-
-
+		// valid bid!
+		synchronized(validBidLock) {
 			//   Put your bid in place
-			synchronized(highestBidders){
-				highestBidders.put(listingID, bidderName);
-			}
 			synchronized(highestBids){
 				highestBids.put(listingID, biddingAmount);
 			}
-			//			System.out.println(listingID + ": minimum " + listing.lowestBiddingPrice() + ", bid " + biddingAmount + " bid success");
+			synchronized(highestBidders){
+				highestBidders.put(listingID, bidderName);
+			}
+
+			synchronized(itemsPerBuyer) {
+				//   Decrement the former winning bidder's count
+				if (formerBidder != null) {
+					itemsPerBuyer.put(formerBidder, itemsPerBuyer.get(formerBidder)-1);
+				}				
+				itemsPerBuyer.put(bidderName,  itemsPerBuyer.get(bidderName)+1);
+			}
 
 			return true;
-
 		}
-
-
-
-
 	}
 
 	/**
@@ -302,65 +286,64 @@ public class AuctionServer
 	public int checkBidStatus(String bidderName, int listingID)
 	{
 		Item item;
-		boolean biddingOpen;
+		String seller;
+		String lastBidder;
+		int value;
+		
 		//   If the bidding is closed, clean up for that item.
-		synchronized(itemsAndIDs) {
-			item = itemsAndIDs.get(listingID);
-			biddingOpen = item.biddingOpen();
+		synchronized(itemsAndIDs){
+			if (!itemsAndIDs.containsKey(listingID)) {
+				return 3;
+			} else {
+				item = itemsAndIDs.get(listingID);
+			}
 		}
-		synchronized(item) {
-			String highestBidder = null;
 
-			int value;
-			boolean bidExists = true;
-			//     Remove item from the list of things up for bidding.
-			synchronized(highestBids) {
-				if (highestBids.containsKey(listingID)) {
-					value = highestBids.remove(listingID);
-				} else {
-					value = -1;
-					bidExists = false;
-				}
-			}
+		seller = item.seller();
+
+
+		if (item.biddingOpen()) {
+			return 2;
+		}
+
+		synchronized(validPurchaseLock) {
 			synchronized(highestBidders) {
-				if (highestBidders.containsKey(listingID)) {
-					highestBidder = highestBidders.remove(listingID);
-				} else {
-					bidExists = false;
-				}
-			}
-
-			if (biddingOpen) {
-				return 2; //open
-			}
-			if (!bidExists) {
-				return 3; //failed
-			}
-
-			//     Decrease the count of items being bid on by the winning bidder if there was any...
-			synchronized(itemsPerBuyer) {
-				if (highestBidder != null) {
-					itemsPerBuyer.put(highestBidder, itemsPerBuyer.get(highestBidder)-1);
-				} else {
-					System.out.println("ERROR: This should not be running");
+				if (!highestBidders.containsKey(listingID) || !highestBidders.get(listingID).equals(bidderName)) {
 					return 3;
 				}
 			}
 
-			//     Update the number of open bids for this seller
-			synchronized(itemsPerSeller) {
-				itemsPerSeller.put(item.seller(), itemsPerSeller.get(item.seller())-1);
+			synchronized(highestBids) {
+				if (!highestBids.containsKey(listingID)) {
+					return 3;
+				}
+				value = highestBids.remove(listingID);
+				
+				
 			}
+			
+			synchronized(highestBidders){
+				lastBidder = highestBidders.remove(listingID);
+			}
+				
 
-
-			if (value != -1) {
-				synchronized(revenueLock) {
-					revenue += value;
+			synchronized(itemsPerBuyer) {
+				//     Decrease the count of items being bid on by the winning bidder if there was any...
+				if(itemsPerBuyer.containsKey(lastBidder)) {
+					itemsPerBuyer.put(lastBidder, itemsPerBuyer.get(lastBidder)-1);
 				}
 			}
 
-			return 1;	
+			synchronized(itemsPerSeller) {
+				//     Update the number of open bids for this seller
+				if(itemsPerSeller.containsKey(seller)) {
+					itemsPerSeller.put(seller, itemsPerSeller.get(seller)-1);
+				}
+			}
+			revenue+=value;
 		}
+		
+		return 1;
 	}
 
 	/**
@@ -374,10 +357,11 @@ public class AuctionServer
 		synchronized(highestBids) {
 			if (!highestBids.containsKey(listingID)) {
 				return -1;
+			} else {
+				return highestBids.get(listingID);
 			}
-			return highestBids.get(listingID);
+			
 		}
-
 	}
 
 	/**
@@ -387,20 +371,19 @@ public class AuctionServer
 	 */
 	public Boolean itemUnbid(int listingID)
 	{
-		boolean inBid = true;
-
-		Item current;
-		synchronized(itemsAndIDs) {
-			current = itemsAndIDs.get(listingID);
-			if (current == null) {
-				inBid = false;
+		synchronized(highestBids){
+			if (!highestBids.containsKey(listingID)) {
+				return false;
 			}
 		}
-
-		synchronized(itemsUpForBidding) {
-			return inBid && itemsUpForBidding.contains(current);
+		
+		synchronized(highestBidders){
+			if (!highestBidders.containsKey(listingID)) {
+				return false;
+			}
 		}
-
+		
+		return true;
 	}
 
 
