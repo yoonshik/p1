@@ -174,7 +174,7 @@ public class ServerTestMulti3
 	@Test
 	public void testMultiThread4() throws Exception
 	{
-		for (int i = 0; i < 500; i++) {
+		for (int i = 0; i < 10000; i++) {
 			setUp();
 			System.out.println("Test " + i);
 			testMultiThread(4, 20, 200);
