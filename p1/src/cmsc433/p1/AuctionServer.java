@@ -135,7 +135,6 @@ public class AuctionServer
 	{
 
 		Item item;
-		int listingID;
 		
 		//   Make sure there's room in the auction site.
 
