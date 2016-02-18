@@ -105,8 +105,6 @@ public class AuctionServer
 	//
 
 	private Object lastListingIDLock = new Object();
-	private Object validBidLock = new Object();
-	private Object validPurchaseLock = new Object();
 
 	private HashMap<Integer, Object> listingIDLocks = new HashMap<Integer, Object>();
 
@@ -173,6 +171,9 @@ public class AuctionServer
 			}
 			synchronized(listingIDLocks){
 				listingIDLocks.put(lastListingID, new Object());
+			}
+			synchronized(highestBids) {
+				highestBids.put(lastListingID, lowestBiddingPrice);
 			}
 			
 			return lastListingID;
@@ -264,10 +265,7 @@ public class AuctionServer
 				if (highestBids.containsKey(listingID) && highestBids.get(listingID) >= biddingAmount ) {
 					return false;
 				}
-			}
-
-			//   Put your bid in place
-			synchronized(highestBids){
+				//   Put your bid in place
 				highestBids.put(listingID, biddingAmount);
 			}
 			synchronized(highestBidders){
