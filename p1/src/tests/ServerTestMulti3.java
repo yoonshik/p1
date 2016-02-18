@@ -13,7 +13,7 @@ import java.lang.reflect.Field;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-public class ServerTestMulti
+public class ServerTestMulti3
 {
 
 	@BeforeClass
@@ -144,37 +144,46 @@ public class ServerTestMulti
 	}
 
 	@Test
-	public void testMultiThread0()
+	public void testMultiThread0() throws Exception
 	{
+		setUp();
 		testMultiThread(0, 80, 80);
 	}
 
 	@Test
-	public void testMultiThread1()
+	public void testMultiThread1() throws Exception
 	{
+		setUp();
 		testMultiThread(1, 80, 160);
 	}
 
 	@Test
-	public void testMultiThread2()
+	public void testMultiThread2() throws Exception
 	{
+		setUp();
 		testMultiThread(2, 80, 240);
 	}
 
 	@Test
-	public void testMultiThread3()
+	public void testMultiThread3() throws Exception
 	{
+		setUp();
 		testMultiThread(3, 80, 320);
 	}
 
 	@Test
-	public void testMultiThread4()
+	public void testMultiThread4() throws Exception
 	{
-		testMultiThread(4, 20, 200);
+		for (int i = 0; i < 500; i++) {
+			setUp();
+			System.out.println("Test " + i);
+			testMultiThread(4, 20, 200);
+		}
 	}
 	
 	@Test
-	public void testMultiThread5() {
+	public void testMultiThread5() throws Exception {
+		setUp();
 		AuctionServer server = AuctionServer.getInstance();
 		Seller s = new Seller(server, "seller1", 5, 1, 1);
 		Bidder[] buyers = new Bidder[2];
@@ -234,7 +243,8 @@ public class ServerTestMulti
 	}
 	
 	@Test
-	public void testMultiThread6() {
+	public void testMultiThread6() throws Exception {
+		setUp();
 		AuctionServer server = AuctionServer.getInstance();
 		Seller s = new Seller(server, "seller1", 5, 1, 1);
 		Seller s2 = new Seller(server, "seller2", 5, 1, 1);
