@@ -256,7 +256,7 @@ public class AuctionServer
 			synchronized(highestBidders){
 				highestBidders.put(listingID, bidderName);
 			}
-
+			
 			synchronized(itemsPerBuyer) {
 				//   Decrement the former winning bidder's count
 				if (formerBidder != null) {
@@ -347,14 +347,18 @@ public class AuctionServer
 	 */
 	public int itemPrice(int listingID)
 	{
-		synchronized(highestBids) {
-			if (!highestBids.containsKey(listingID)) {
-				return -1;
-			} else {
-				return highestBids.get(listingID);
+		int toReturn;
+		synchronized(listingIDLocks.get(listingID)) {
+			synchronized(highestBids) {
+				if (!highestBids.containsKey(listingID)) {
+					toReturn = -1;
+				} else {
+					toReturn = highestBids.get(listingID);
+				}
 			}
-
 		}
+		return toReturn;
+		
 	}
 
 	/**
@@ -365,7 +369,7 @@ public class AuctionServer
 	public Boolean itemUnbid(int listingID)
 	{
 		
-		synchronized(listingIDLocks.get(listingID)){ 
+		synchronized(listingIDLocks.get(listingID)) {
 			synchronized(highestBids){
 				if (!highestBids.containsKey(listingID)) {
 					return false;
