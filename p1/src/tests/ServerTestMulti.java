@@ -172,6 +172,96 @@ public class ServerTestMulti
 	{
 		testMultiThread(4, 20, 200);
 	}
+	
+	@Test
+	public void testMultiThread5() {
+		AuctionServer server = AuctionServer.getInstance();
+		Seller s = new Seller(server, "seller1", 5, 1, 1);
+		Bidder[] buyers = new Bidder[2];
+		Thread[] buyerThreads = new Thread[2];
+		Thread sellerThread = new Thread(s);
+		sellerThread.start();
+		try {
+			Thread.sleep(2000);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		for (int i=0; i<2; ++i)
+		{
+			buyers[i] = new Bidder(
+					/* server = */          AuctionServer.getInstance(),
+					/* buyerName = */       "Buyer"+i, 
+					/* initialCash = */     1000, 
+					/* cycles = */          10, 
+					/* maxSleepTimeMs = */  2, 
+					/* randomSeed = */      i);
+			buyerThreads[i] = new Thread(buyers[i]);
+			buyerThreads[i].start();
+		}
+	
+		try
+		{
+			sellerThread.join();
+		}
+		catch (InterruptedException e)
+		{
+			e.printStackTrace();
+		}
+		
+		int moneySpent = 0;
+		for (int i=0; i<2; ++i)
+		{
+			try
+			{
+				buyerThreads[i].join();
+				moneySpent += buyers[i].cashSpent();
+			}
+			catch (InterruptedException e)
+			{
+				e.printStackTrace();
+			}
+		}
+		assertTrue("No items should be sold " + moneySpent, moneySpent==0);
+		assertTrue("For test number " + 5 + " the server revenue " + AuctionServer.getInstance().revenue() + " differs from the revenue reported by the buyers " + moneySpent + "!", moneySpent == AuctionServer.getInstance().revenue());
+		for (int i=0; i<buyers.length; ++i)
+		{
+			assertTrue("For test number " + 5 + " the server items capacity " + buyers[i].mostItemsAvailable() + " exceeds the limit of " + AuctionServer.serverCapacity + "!", buyers[i].mostItemsAvailable() <= AuctionServer.serverCapacity);
+		}
+		assertTrue("Total items sold ", AuctionServer.getInstance().soldItemsCount() == 0);
+
+
+	}
+	
+	@Test
+	public void testMultiThread6() {
+		AuctionServer server = AuctionServer.getInstance();
+		Seller s = new Seller(server, "seller1", 5, 1, 1);
+		Seller s2 = new Seller(server, "seller2", 5, 1, 1);
+		Thread[] sellerThread = new Thread[2];
+		sellerThread[0] = new Thread(s);
+		sellerThread[1] = new Thread(s2);
+		sellerThread[0].start();
+		sellerThread[1].start();
+		
+		for (int i=0; i<2; ++i)
+		{
+			try
+			{
+				sellerThread[i].join();
+			}
+			catch (InterruptedException e)
+			{
+				e.printStackTrace();
+			}
+		}
+		assertTrue("No items should be sold ", AuctionServer.getInstance().revenue()==0);
+
+		assertTrue("Total items sold ", AuctionServer.getInstance().soldItemsCount() == 0);
+
+
+			
+	}
 
 	
 }
