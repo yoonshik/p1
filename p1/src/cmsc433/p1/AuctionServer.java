@@ -130,18 +130,17 @@ public class AuctionServer
 	{
 
 		Item item;
-		
+
 		//   Make sure there's room in the auction site.
-		
+
 		synchronized(lastListingIDLock) {
-			
 			//sanity check
 			synchronized(listingIDLocks) {
 				if (listingIDLocks.containsKey(lastListingID+1)) {
 					throw new UnsupportedOperationException();
 				}
 			}
-			
+
 			synchronized(itemsUpForBidding) {
 				if (itemsUpForBidding.size() >= serverCapacity) {
 					return -1;
@@ -212,11 +211,11 @@ public class AuctionServer
 		synchronized(listingIDLocks) {
 			lock = listingIDLocks.get(listingID);
 		}
-		
+
 		if (lock==null) {
 			return false;
 		}
-		
+
 		synchronized(lock) {
 			synchronized(itemsAndIDs) {
 				item = itemsAndIDs.get(listingID);
@@ -259,7 +258,7 @@ public class AuctionServer
 					noBidsYet = true;
 				}
 			}
-			
+
 			//   See if the new bid isn't better than the existing/opening bid floor.
 			synchronized(highestBids) {
 				if (highestBids.containsKey(listingID)) {
@@ -272,14 +271,14 @@ public class AuctionServer
 						return false;
 					}
 				}
-				
+
 				//   Put your bid in place
 				highestBids.put(listingID, biddingAmount);
 			}
 			synchronized(highestBidders){
 				highestBidders.put(listingID, bidderName);
 			}
-			
+
 			synchronized(itemsPerBuyer) {
 				//   Decrement the former winning bidder's count
 				if (formerBidder != null) {
@@ -301,89 +300,87 @@ public class AuctionServer
 	 */
 	public int checkBidStatus(String bidderName, int listingID)
 	{
-		Item item;
-		String seller;
-		String lastBidder;
-		int value;
-		Item toRemove;
-		boolean notHighest;
-
 		Object lock;
+		Item item;
+		boolean successfulPurchase;
+		String highestBidder = null;
+		int bidPrice;
+		boolean removeSellerItem;
+
 		synchronized(listingIDLocks) {
 			lock = listingIDLocks.get(listingID);
+			if (lock == null) {
+				return 3;
+			}
 		}
-		
-		if (lock==null) {
-			return 3;
-		}
-		
-		synchronized(lock) {
 
-			//   If the bidding is closed, clean up for that item.
-			synchronized(itemsAndIDs){
+		synchronized(lock) {
+			synchronized(itemsAndIDs) {
 				if (!itemsAndIDs.containsKey(listingID)) {
 					return 3;
-				} else {
-					item = itemsAndIDs.get(listingID);
 				}
+				item = itemsAndIDs.get(listingID);
 			}
-			seller = item.seller();
+
 			if (item.biddingOpen()) {
 				return 2;
 			}
-			
-			synchronized(itemsPerSeller) {
-				//     Update the number of open bids for this seller
-				if(itemsPerSeller.containsKey(seller)) {
-					itemsPerSeller.put(seller, itemsPerSeller.get(seller)-1);
+
+			//   If the bidding is closed, clean up for that item.
+
+			//	Remove item from the list of things up for bidding.
+			synchronized(itemsUpForBidding) {
+				if (itemsUpForBidding.contains(item)) {
+					successfulPurchase = true;
+					itemsUpForBidding.remove(item);
+				} else {
+					successfulPurchase = false;
 				}
 			}
 
-			synchronized(highestBidders){
-				lastBidder = highestBidders.get(listingID);
-				if (!highestBidders.containsKey(listingID) || !highestBidders.get(listingID).equals(bidderName)) {
-					notHighest = true;
+			synchronized(highestBidders) {
+				if (highestBidders.containsKey(listingID)) {
+					highestBidder = highestBidders.get(listingID);
 				} else {
-					notHighest = false;
+					successfulPurchase = false;
 				}
-			}
-			synchronized(itemsPerBuyer) {
-				//     Decrease the count of items being bid on by the winning bidder if there was any...
-				if(itemsPerBuyer.containsKey(lastBidder)) {
-					itemsPerBuyer.put(lastBidder, itemsPerBuyer.get(lastBidder)-1);
-				}
+				
+				removeSellerItem = successfulPurchase || !highestBidders.containsKey(listingID);
+				
 			}
 			
-			synchronized(itemsUpForBidding) {
-				toRemove = itemsAndIDs.get(listingID);
-				if (itemsUpForBidding.contains(toRemove)) {
-					itemsUpForBidding.remove(toRemove);
+			if (removeSellerItem) {
+				synchronized(itemsPerSeller) {
+					//	Update the number of open bids for this seller
+					itemsPerSeller.put(item.seller(), itemsPerSeller.get(item.seller())-1);
 				}
-			}
-			
-			synchronized(itemsAndIDs) {
-				itemsAndIDs.remove(listingID);
-			}
-			
-			if (notHighest) {
-				return 3;
 			}
 			
 			synchronized(highestBids) {
-				if (!highestBids.containsKey(listingID)) {
-					return 3;
+				if (highestBids.containsKey(listingID)) {
+					bidPrice = highestBids.get(listingID);
+				} else {
+					bidPrice = 0;
 				}
-				value = highestBids.get(listingID);
 			}
-			synchronized(revenueLock) {
-				revenue+=value;
+
+			if (successfulPurchase) {
+				//	Decrease the count of items being bid on by the winning bidder if there was any..
+				synchronized(itemsPerBuyer) {
+					if (highestBidder!=null) {
+						itemsPerBuyer.put(highestBidder, itemsPerBuyer.get(highestBidder)-1);
+					}
+				}
+				soldItemsCount++;
+				revenue+=bidPrice;
 			}
-			
 		}
-		synchronized(soldItemsCountLock) {
-			soldItemsCount++;
+
+		if (bidderName.equals(highestBidder)) {
+			return 1;
+		} else {
+			return 3;
 		}
-		return 1;
 	}
 
 	/**
@@ -399,11 +396,11 @@ public class AuctionServer
 		synchronized(listingIDLocks) {
 			lock = listingIDLocks.get(listingID);
 		}
-		
+
 		if (lock==null) {
 			return -1;
 		}
-		
+
 		synchronized(lock) {
 			synchronized(highestBids) {
 				if (!highestBids.containsKey(listingID)) {
@@ -414,7 +411,7 @@ public class AuctionServer
 			}
 		}
 		return toReturn;
-		
+
 	}
 
 	/**
@@ -424,16 +421,15 @@ public class AuctionServer
 	 */
 	public Boolean itemUnbid(int listingID)
 	{
-		
 		Object lock;
 		synchronized(listingIDLocks) {
 			lock = listingIDLocks.get(listingID);
 		}
-		
+
 		if (lock==null) {
 			return true;
 		}
-		
+
 		synchronized(lock) {
 			synchronized(highestBids){
 				if (!highestBids.containsKey(listingID)) {

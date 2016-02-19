@@ -68,7 +68,7 @@ public class ServerTestMulti4
 		assertEquals(2, auctionServer.checkBidStatus("Johnny", toyCarId));
 		assertEquals(4, auctionServer.itemPrice(toyCarId));
 		assertEquals(true, auctionServer.itemUnbid(toyCarId));
-
+		
 		// The ToyCar auction expired without bids. Check the results.
 		System.out.println("Waiting");
 		Thread.sleep(200);
@@ -161,6 +161,8 @@ public class ServerTestMulti4
 		// The following test will cause an exception if this statement is false
 		assertTrue(AuctionServer.serverCapacity >= AuctionServer.maxSellerItems);
 
+		System.out.println("LIMIT");
+		
 		// Test the limit for a single seller.
 		int [] itemIds = new int [AuctionServer.maxSellerItems];
 		for (int i = 0; i < AuctionServer.maxSellerItems; i++) {
