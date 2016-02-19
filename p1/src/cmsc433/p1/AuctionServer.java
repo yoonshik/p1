@@ -105,12 +105,10 @@ public class AuctionServer
 	//
 
 	private Object lastListingIDLock = new Object();
+	private Object revenueLock = new Object();
+	private Object soldItemsCountLock = new Object();
 
 	private HashMap<Integer, Object> listingIDLocks = new HashMap<Integer, Object>();
-
-
-
-
 
 	/*
 	 *  The code from this point forward can and should be changed to correctly and safely 
@@ -119,7 +117,6 @@ public class AuctionServer
 	 *  with them saying what they represent.  Note that if they just represent one structure
 	 *  then you should probably be using that structure's intrinsic lock.
 	 */
-
 
 	/**
 	 * Attempt to submit an <code>Item</code> to the auction
@@ -135,7 +132,7 @@ public class AuctionServer
 		Item item;
 		
 		//   Make sure there's room in the auction site.
-
+		
 		synchronized(lastListingIDLock) {
 			
 			//sanity check
@@ -247,24 +244,35 @@ public class AuctionServer
 			//   Get current bidding info.
 
 			String formerBidder;
+			boolean noBidsYet;
 
 			synchronized(highestBidders) {
 				if (highestBidders.containsKey(listingID)) {
 					formerBidder = highestBidders.get(listingID);
+					noBidsYet = false;
 					//   See if they already hold the highest bid.
 					if (formerBidder.equals(bidderName)) {
 						return false;
 					}
 				} else {
 					formerBidder = null;
+					noBidsYet = true;
 				}
 			}
-
+			
 			//   See if the new bid isn't better than the existing/opening bid floor.
 			synchronized(highestBids) {
-				if (highestBids.containsKey(listingID) && highestBids.get(listingID) >= biddingAmount ) {
-					return false;
+				if (highestBids.containsKey(listingID)) {
+					if (noBidsYet && biddingAmount>=highestBids.get(listingID)) {
+						// good to go
+					}
+					if (biddingAmount<highestBids.get(listingID)) {
+						return false;
+					} else if (!noBidsYet && biddingAmount == highestBids.get(listingID)) {
+						return false;
+					}
 				}
+				
 				//   Put your bid in place
 				highestBids.put(listingID, biddingAmount);
 			}
@@ -297,6 +305,8 @@ public class AuctionServer
 		String seller;
 		String lastBidder;
 		int value;
+		Item toRemove;
+		boolean notHighest;
 
 		Object lock;
 		synchronized(listingIDLocks) {
@@ -317,48 +327,61 @@ public class AuctionServer
 					item = itemsAndIDs.get(listingID);
 				}
 			}
-
 			seller = item.seller();
-
-
 			if (item.biddingOpen()) {
 				return 2;
 			}
-
-			synchronized(highestBidders) {
-				if (!highestBidders.containsKey(listingID) || !highestBidders.get(listingID).equals(bidderName)) {
-					return 3;
-				}
-			}
-
-			synchronized(highestBids) {
-				if (!highestBids.containsKey(listingID)) {
-					return 3;
-				}
-				value = highestBids.remove(listingID);
-
-
-			}
-
-			synchronized(highestBidders){
-				lastBidder = highestBidders.remove(listingID);
-			}
-
-
-			synchronized(itemsPerBuyer) {
-				//     Decrease the count of items being bid on by the winning bidder if there was any...
-				if(itemsPerBuyer.containsKey(lastBidder)) {
-					itemsPerBuyer.put(lastBidder, itemsPerBuyer.get(lastBidder)-1);
-				}
-			}
-
+			
 			synchronized(itemsPerSeller) {
 				//     Update the number of open bids for this seller
 				if(itemsPerSeller.containsKey(seller)) {
 					itemsPerSeller.put(seller, itemsPerSeller.get(seller)-1);
 				}
 			}
-			revenue+=value;
+
+			synchronized(highestBidders){
+				lastBidder = highestBidders.get(listingID);
+				if (!highestBidders.containsKey(listingID) || !highestBidders.get(listingID).equals(bidderName)) {
+					notHighest = true;
+				} else {
+					notHighest = false;
+				}
+			}
+			synchronized(itemsPerBuyer) {
+				//     Decrease the count of items being bid on by the winning bidder if there was any...
+				if(itemsPerBuyer.containsKey(lastBidder)) {
+					itemsPerBuyer.put(lastBidder, itemsPerBuyer.get(lastBidder)-1);
+				}
+			}
+			
+			synchronized(itemsUpForBidding) {
+				toRemove = itemsAndIDs.get(listingID);
+				if (itemsUpForBidding.contains(toRemove)) {
+					itemsUpForBidding.remove(toRemove);
+				}
+			}
+			
+			synchronized(itemsAndIDs) {
+				itemsAndIDs.remove(listingID);
+			}
+			
+			if (notHighest) {
+				return 3;
+			}
+			
+			synchronized(highestBids) {
+				if (!highestBids.containsKey(listingID)) {
+					return 3;
+				}
+				value = highestBids.get(listingID);
+			}
+			synchronized(revenueLock) {
+				revenue+=value;
+			}
+			
+		}
+		synchronized(soldItemsCountLock) {
+			soldItemsCount++;
 		}
 		return 1;
 	}
@@ -414,17 +437,17 @@ public class AuctionServer
 		synchronized(lock) {
 			synchronized(highestBids){
 				if (!highestBids.containsKey(listingID)) {
-					return false;
+					return true;
 				}
 			}
 
 			synchronized(highestBidders){
 				if (!highestBidders.containsKey(listingID)) {
-					return false;
+					return true;
 				}
 			}
 		}
-		return true;
+		return false;
 	}
 
 

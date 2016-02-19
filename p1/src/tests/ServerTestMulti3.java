@@ -2,16 +2,17 @@ package tests;
 
 import cmsc433.p1.AuctionServer;
 import cmsc433.p1.Bidder;
+import cmsc433.p1.Item;
 import cmsc433.p1.Seller;
 import org.junit.*;
+
+import static org.junit.Assert.*;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
-
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import java.util.List;
 
 public class ServerTestMulti3
 {
@@ -70,9 +71,9 @@ public class ServerTestMulti3
 			sellerThreads[i].start();
 		}
 
-		
-		
-		
+
+
+
 		for (int i=0; i<nrBuyers; ++i)
 		{
 			buyers[i] = new Bidder(
@@ -86,9 +87,9 @@ public class ServerTestMulti3
 			buyerThreads[i].start();
 		}
 
-		
-		
-		
+
+
+
 		for (int i=0; i<nrSellers; ++i)
 		{
 			try
@@ -174,13 +175,10 @@ public class ServerTestMulti3
 	@Test
 	public void testMultiThread4() throws Exception
 	{
-		for (int i = 0; i < 10000; i++) {
-			setUp();
-			System.out.println("Test " + i);
-			testMultiThread(4, 20, 200);
-		}
+		testMultiThread(4, 20, 200);
+
 	}
-	
+
 	@Test
 	public void testMultiThread5() throws Exception {
 		setUp();
@@ -208,7 +206,7 @@ public class ServerTestMulti3
 			buyerThreads[i] = new Thread(buyers[i]);
 			buyerThreads[i].start();
 		}
-	
+
 		try
 		{
 			sellerThread.join();
@@ -217,7 +215,7 @@ public class ServerTestMulti3
 		{
 			e.printStackTrace();
 		}
-		
+
 		int moneySpent = 0;
 		for (int i=0; i<2; ++i)
 		{
@@ -241,7 +239,7 @@ public class ServerTestMulti3
 
 
 	}
-	
+
 	@Test
 	public void testMultiThread6() throws Exception {
 		setUp();
@@ -253,7 +251,7 @@ public class ServerTestMulti3
 		sellerThread[1] = new Thread(s2);
 		sellerThread[0].start();
 		sellerThread[1].start();
-		
+
 		for (int i=0; i<2; ++i)
 		{
 			try
@@ -270,8 +268,8 @@ public class ServerTestMulti3
 		assertTrue("Total items sold ", AuctionServer.getInstance().soldItemsCount() == 0);
 
 
-			
-	}
 
+	}
 	
+
 }
